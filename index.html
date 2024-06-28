@@ -22,12 +22,24 @@
 </head>
 <body>
     <form action="javascript:run();">
-        <input type="text" placeholder="https://github.com/mecaneer23/pages" id="url">
+        <input type="text" placeholder="https://raw.githubusercontent.com/mecaneer23/pages/main/index.html" id="url">
         <input type="submit" value="Submit">
     </form>
     <script>
         function run() {
-            console.log("ran with " + document.getElementById("url").value);
+            const url = document.getElementById("url").value;
+            const frame = document.createElement("iframe");
+            frame.style.width = "100%";
+            frame.style.height = "100%";
+            frame.frameBorder = "0";
+            document.body.appendChild(frame);
+            fetch(url).then(async (response) => {
+                const doc = frame.contentWindow.document;
+                doc.open();
+                doc.write(await response.text());
+                doc.close();
+                document.querySelector("form").style.display = "none";
+            });
         }
     </script>
 </body>
