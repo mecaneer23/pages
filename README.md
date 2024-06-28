@@ -1,3 +1,3 @@
 # Pages
 
-View GitHub repo without GitHub pages.
+View HTML GitHub folder without GitHub pages.
