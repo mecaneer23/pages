@@ -25,7 +25,7 @@
 
 <body>
     <form action="javascript:run();">
-        <input type="text" placeholder="https://raw.githubusercontent.com/mecaneer23/pages/main/index.html" id="url">
+        <input type="text" placeholder="https://github.com/mecaneer23/pages/" id="url">
         <input type="submit" value="Submit">
     </form>
     <script>
@@ -35,8 +35,9 @@
                 alert(message);
                 throw TypeError(message);
             }
-            const [user, repo, _, branch, ...rest] = url.replace("https://github.com/", "").split("/");
+            const [user, repo, _, possibleBranch, ...rest] = url.replace("https://github.com/", "").split("/");
             const path = rest.join("/");
+            const branch = possibleBranch ? `?ref=${possibleBranch}` : "";
             return {
                 user: user,
                 repo: repo,
@@ -48,7 +49,7 @@
         function folderLinkToList() {
             const folderLink = document.getElementById("url").value;
             const url = parseUrl(folderLink);
-            const fetchUrl = `https://api.github.com/repos/${url.user}/${url.repo}/contents/${url.path}?ref=${url.branch}`;
+            const fetchUrl = `https://api.github.com/repos/${url.user}/${url.repo}/contents/${url.path}${url.branch}`;
             return fetch(fetchUrl).then((response) => response.json());
         }
 
@@ -65,7 +66,6 @@
         }
 
         function getIndexFile(files) {
-            console.log(files);
             for (file of files) {
                 if (file.name === "index.html" && file.type === "file") {
                     return file.download_url;
