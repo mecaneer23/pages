@@ -49,12 +49,10 @@
             const folderLink = document.getElementById("url").value;
             const url = parseUrl(folderLink);
             const fetchUrl = `https://api.github.com/repos/${url.user}/${url.repo}/contents/${url.path}?ref=${url.branch}`;
-            // TODO: fetch fetchUrl and return useful data
-            console.log(fetchUrl);
+            return fetch(fetchUrl).then((response) => response.json());
         }
 
-        function run() {
-            const url = document.getElementById("url").value;
+        function createFrame() {
             const frame = document.createElement("iframe");
             frame.style.width = "100vw";
             frame.style.height = "100vh";
@@ -63,13 +61,35 @@
             frame.style.left = "0";
             frame.frameBorder = "0";
             document.body.appendChild(frame);
-            fetch(url).then(async (response) => {
+            return frame;
+        }
+
+        function getIndexFile(files) {
+            console.log(files);
+            for (file of files) {
+                if (file.name === "index.html" && file.type === "file") {
+                    return file.download_url;
+                }
+            }
+            return null;
+        }
+
+        async function run() {
+            const frame = createFrame();
+            const files = await folderLinkToList();
+            const rawUrl = getIndexFile(files);
+            if (!rawUrl) {
+                const message = "No `index.html` found in entered folder";
+                alert(message);
+                throw TypeError(message);
+            }
+            fetch(rawUrl).then(async (response) => {
                 const doc = frame.contentWindow.document;
                 doc.open();
                 doc.write(await response.text());
                 doc.close();
                 document.querySelector("form").style.display = "none";
-                document.title = url;
+                document.title = rawUrl;
             });
         }
     </script>
