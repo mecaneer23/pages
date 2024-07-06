@@ -14,8 +14,8 @@
 </head>
 
 <body>
-    <a href="https://github.com/mecaneer23/pages" class="github-corner"
-        aria-label="View source on GitHub"><svg viewBox="0 0 250 250" aria-hidden="true">
+    <a href="https://github.com/mecaneer23/pages" class="github-corner" aria-label="View source on GitHub"><svg
+            viewBox="0 0 250 250" aria-hidden="true">
             <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
             <path
                 d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
@@ -79,17 +79,31 @@
             return `<${tagType}>${material}</${tagType}>`;
         }
 
-        function handleImports(indexHtml) {
+        async function fetchFile(rawLink) {
+            return await fetch(rawLink).then(async (response) => await response.text());
+        }
+
+        async function handleImports(indexHtml) {
             let rawJs = "";
             let rawCss = "";
-            for (line of indexHtml.split("\n")) {
-                // if (regex handling css (link tag)) {
-                    // rawCss += fetchFile(css file link)
-                    // continue;
-                //}
-                // if (regex handling js (script tag with src)) {
-                    // rawJs += fetchFile(js file link)
-                //}
+            const htmlElement = document.createElement("div");
+            for (let line of indexHtml.split("\n")) {
+                if (line.length == 0 || line.match(/(DOCTYPE)|(<\/?((html)|(head)|(body)))/)) {
+                    continue;
+                }
+                htmlElement.innerHTML = line;
+                console.log(line)
+                console.log(htmlElement)
+                console.log(htmlElement.firstChild)
+                let type = htmlElement.firstChild.nodeName.toLowerCase();
+                let attributes = htmlElement.firstChild.attributes;
+                if (type === "link" && attributes.rel.value === "stylesheet") {
+                    rawCss += fetchFile(attributes.href.value);
+                    continue;
+                }
+                if (type === "script") {
+                    rawJs += fetchFile(attributes.src.value);
+                }
             }
             return indexHtml + formatRawMaterial(rawJs, "script") + formatRawMaterial(rawCss, "style");
         }
@@ -104,7 +118,7 @@
                 throw TypeError(message);
             }
             fetch(rawUrl).then(async (response) => {
-                const text = handleImports(await response.text());
+                const text = await handleImports(await response.text());
                 const doc = frame.contentWindow.document;
                 doc.open();
                 doc.write(text);
