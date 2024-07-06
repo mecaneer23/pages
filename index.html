@@ -75,6 +75,25 @@
             return null;
         }
 
+        function formatRawMaterial(material, tagType) {
+            return `<${tagType}>${material}</${tagType}>`;
+        }
+
+        function handleImports(indexHtml) {
+            let rawJs = "";
+            let rawCss = "";
+            for (line of indexHtml.split("\n")) {
+                // if (regex handling css (link tag)) {
+                    // rawCss += fetchFile(css file link)
+                    // continue;
+                //}
+                // if (regex handling js (script tag with src)) {
+                    // rawJs += fetchFile(js file link)
+                //}
+            }
+            return indexHtml + formatRawMaterial(rawJs, "script") + formatRawMaterial(rawCss, "style");
+        }
+
         async function run() {
             const frame = createFrame();
             const files = await folderLinkToList();
@@ -85,9 +104,10 @@
                 throw TypeError(message);
             }
             fetch(rawUrl).then(async (response) => {
+                const text = handleImports(await response.text());
                 const doc = frame.contentWindow.document;
                 doc.open();
-                doc.write(await response.text());
+                doc.write(text);
                 doc.close();
                 document.querySelector("form").style.display = "none";
                 document.body.style.all = "initial";
