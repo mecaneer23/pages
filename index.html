@@ -79,11 +79,18 @@
             return `<${tagType}>${material}</${tagType}>`;
         }
 
-        async function fetchFile(rawLink) {
+        async function fetchFile(path) {
+            for (file of files) {
+                if (file.name === path && file.type === "file") {
+                    const rawLink = file.download_url;
+                    break;
+                }
+                // TODO: implement using paths which include folders
+            }
             return await fetch(rawLink).then(async (response) => await response.text());
         }
 
-        async function handleImports(indexHtml) {
+        async function handleImports(indexHtml, files) {
             let rawJs = "";
             let rawCss = "";
             const htmlElement = document.createElement("div");
@@ -92,9 +99,6 @@
                     continue;
                 }
                 htmlElement.innerHTML = line;
-                console.log(line)
-                console.log(htmlElement)
-                console.log(htmlElement.firstChild)
                 let type = htmlElement.firstChild.nodeName.toLowerCase();
                 let attributes = htmlElement.firstChild.attributes;
                 if (type === "link" && attributes.rel.value === "stylesheet") {
@@ -102,6 +106,7 @@
                     continue;
                 }
                 if (type === "script") {
+                    console.log(fetchFile(attributes.src.value))
                     rawJs += fetchFile(attributes.src.value);
                 }
             }
@@ -118,7 +123,7 @@
                 throw TypeError(message);
             }
             fetch(rawUrl).then(async (response) => {
-                const text = await handleImports(await response.text());
+                const text = await handleImports(await response.text(), files);
                 const doc = frame.contentWindow.document;
                 doc.open();
                 doc.write(text);
