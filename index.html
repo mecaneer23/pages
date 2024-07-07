@@ -91,9 +91,10 @@
 
         async function handleImports(indexHtml, files) {
             let formattedHTML = "";
+            let title = "Pages"
             const htmlElement = document.createElement("div");
             for (let line of indexHtml.split("\n")) {
-                if (line.length == 0 || !line.match(/<\/?((link)|(script))/)) {
+                if (line.length == 0 || !line.match(/<\/?((link)|(script)|(title))/)) {
                     formattedHTML += line;
                     continue;
                 }
@@ -108,9 +109,15 @@
                     formattedHTML += formatRawMaterial(await fetchFile(attributes.src.value, files), "script");
                     continue;
                 }
+                if (type === "title") {
+                    title = htmlElement.firstChild.innerHTML;
+                }
                 formattedHTML += line;
             }
-            return formattedHTML;
+            return {
+                html: formattedHTML,
+                title: title,
+            };
         }
 
         async function run() {
@@ -123,15 +130,16 @@
                 throw TypeError(message);
             }
             fetch(rawUrl).then(async (response) => {
-                const text = await handleImports(await response.text(), files);
+                const formattedHTML = await handleImports(await response.text(), files);
+                const text = formattedHTML.html;
                 const doc = frame.contentWindow.document;
                 doc.open();
-                doc.write(await text);
+                doc.write(text);
                 doc.close();
                 document.querySelector("form").style.display = "none";
                 document.body.style.all = "initial";
                 document.querySelector(".github-corner").style.display = "none";
-                document.title = rawUrl;
+                document.title = formattedHTML.title;
             });
         }
     </script>
