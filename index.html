@@ -79,38 +79,38 @@
             return `<${tagType}>${material}</${tagType}>`;
         }
 
-        async function fetchFile(path) {
+        async function fetchFile(path, files) {
             for (file of files) {
                 if (file.name === path && file.type === "file") {
-                    const rawLink = file.download_url;
-                    break;
+                    return await fetch(file.download_url).then(async (response) => await response.text());
                 }
                 // TODO: implement using paths which include folders
             }
-            return await fetch(rawLink).then(async (response) => await response.text());
+            throw Error("File not found in files list");
         }
 
         async function handleImports(indexHtml, files) {
-            let rawJs = "";
-            let rawCss = "";
+            let formattedHTML = "";
             const htmlElement = document.createElement("div");
             for (let line of indexHtml.split("\n")) {
-                if (line.length == 0 || line.match(/(DOCTYPE)|(<\/?((html)|(head)|(body)))/)) {
+                if (line.length == 0 || !line.match(/<\/?((link)|(script))/)) {
+                    formattedHTML += line;
                     continue;
                 }
-                htmlElement.innerHTML = line;
+                htmlElement.innerHTML = line.trim();
                 let type = htmlElement.firstChild.nodeName.toLowerCase();
                 let attributes = htmlElement.firstChild.attributes;
                 if (type === "link" && attributes.rel.value === "stylesheet") {
-                    rawCss += fetchFile(attributes.href.value);
+                    formattedHTML += formatRawMaterial(await fetchFile(attributes.href.value, files), "style");
                     continue;
                 }
                 if (type === "script") {
-                    console.log(fetchFile(attributes.src.value))
-                    rawJs += fetchFile(attributes.src.value);
+                    formattedHTML += formatRawMaterial(await fetchFile(attributes.src.value, files), "script");
+                    continue;
                 }
+                formattedHTML += line;
             }
-            return indexHtml + formatRawMaterial(rawJs, "script") + formatRawMaterial(rawCss, "style");
+            return formattedHTML;
         }
 
         async function run() {
@@ -126,7 +126,7 @@
                 const text = await handleImports(await response.text(), files);
                 const doc = frame.contentWindow.document;
                 doc.open();
-                doc.write(text);
+                doc.write(await text);
                 doc.close();
                 document.querySelector("form").style.display = "none";
                 document.body.style.all = "initial";
