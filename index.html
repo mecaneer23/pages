@@ -94,8 +94,8 @@
             let title = "Pages"
             const htmlElement = document.createElement("div");
             for (let line of indexHtml.split("\n")) {
-                if (line.length == 0 || !line.match(/<\/?((link)|(script)|(title))/)) {
-                    formattedHTML += line;
+                if (line.length == 0 || !line.match(/<((link)|(script)|(title))/)) {
+                    formattedHTML += `${line}\n`;
                     continue;
                 }
                 htmlElement.innerHTML = line.trim();
@@ -105,14 +105,14 @@
                     formattedHTML += formatRawMaterial(await fetchFile(attributes.href.value, files), "style");
                     continue;
                 }
-                if (type === "script") {
+                if (type === "script" && "src" in attributes) {
                     formattedHTML += formatRawMaterial(await fetchFile(attributes.src.value, files), "script");
                     continue;
                 }
                 if (type === "title") {
                     title = htmlElement.firstChild.innerHTML;
                 }
-                formattedHTML += line;
+                formattedHTML += `${line}\n`;
             }
             return {
                 html: formattedHTML,
@@ -121,7 +121,6 @@
         }
 
         async function run() {
-            const frame = createFrame();
             const files = await folderLinkToList();
             const rawUrl = getIndexFile(files);
             if (!rawUrl) {
@@ -129,9 +128,13 @@
                 alert(message);
                 throw TypeError(message);
             }
+            const frame = createFrame();
             fetch(rawUrl).then(async (response) => {
                 const formattedHTML = await handleImports(await response.text(), files);
                 const text = formattedHTML.html;
+                if (!text) {
+                    return;
+                }
                 const doc = frame.contentWindow.document;
                 doc.open();
                 doc.write(text);
