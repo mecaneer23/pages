@@ -9,6 +9,7 @@
         form {
             margin-top: 20vh;
         }
+
         label {
             padding-bottom: 0.5vh;
             display: block;
@@ -36,15 +37,22 @@
         <input class="button" type="submit" value="Submit">
     </form>
     <script>
-        function parseUrl(url) {
-            if (!url.startsWith("https://github.com/")) {
-                const message = "Invalid url: must be full github url";
+        function errorIf(condition, message) {
+            if (condition) {
                 alert(message);
-                throw TypeError(message);
+                throw Error(message);
             }
+        }
+
+        function parseUrl(url) {
+            errorIf(
+                !url.startsWith("https://github.com/"),
+                "Invalid url: must be full github url"
+            );
             const [user, repo, _, possibleBranch, ...rest] = url.replace("https://github.com/", "").split("/");
             const path = rest.join("/");
             const branch = possibleBranch ? `?ref=${possibleBranch}` : "";
+            errorIf(!repo, `Repo "${repo}" not found`);
             return {
                 user: user,
                 repo: repo,
@@ -57,7 +65,10 @@
             const folderLink = document.getElementById("url").value;
             const url = parseUrl(folderLink);
             const fetchUrl = `https://api.github.com/repos/${url.user}/${url.repo}/contents/${url.path}${url.branch}`;
-            return fetch(fetchUrl).then((response) => response.json());
+            return fetch(fetchUrl).then((response) => {
+                errorIf(!response.ok, `Invalid repository "${url.repo}"`);
+                return response.json();
+            });
         }
 
         function createFrame() {
@@ -92,7 +103,7 @@
                 }
                 // TODO: implement using paths which include folders
             }
-            throw Error("File not found in files list");
+            errorIf(true, "File not found in files list");
         }
 
         async function handleImports(indexHtml, files) {
@@ -129,11 +140,7 @@
         async function run() {
             const files = await folderLinkToList();
             const rawUrl = getIndexFile(files);
-            if (!rawUrl) {
-                const message = "No `index.html` found in entered folder";
-                alert(message);
-                throw TypeError(message);
-            }
+            errorIf(!rawUrl, "No `index.html` found in entered folder");
             const frame = createFrame();
             fetch(rawUrl).then(async (response) => {
                 const formattedHTML = await handleImports(await response.text(), files);
