@@ -43,15 +43,6 @@ function createFrame() {
     return frame;
 }
 
-function getIndexFile(files) {
-    for (let file of files) {
-        if (file.name === "index.html" && file.type === "file") {
-            return file.download_url;
-        }
-    }
-    return null;
-}
-
 function formatRawMaterial(material, tagType) {
     return `<${tagType}>${material}</${tagType}>`;
 }
@@ -102,23 +93,18 @@ async function handleImports(indexHtml, files) {
 
 async function run() {
     const files = await folderLinkToList(document.getElementById("url").value);
-    const rawUrl = getIndexFile(files);
-    errorIf(!rawUrl, "No `index.html` found in entered folder");
-    fetch(rawUrl).then(async (response) => {
-        const formattedHTML = await handleImports(await response.text(), files);
-        errorIf(!formattedHTML, "Import failed, file not found");
-        const frame = createFrame();
-        const text = formattedHTML.html;
-        if (!text) {
-            return;
-        }
-        const doc = frame.contentWindow.document;
-        doc.open();
-        doc.write(text);
-        doc.close();
-        document.querySelector("form").style.display = "none";
-        document.body.style.all = "initial";
-        document.querySelector(".github-corner").style.display = "none";
-        document.title = formattedHTML.title;
-    });
+    const responseText = fetchFile("index.html", files);
+    const formattedHTML = await handleImports(await responseText, files);
+    errorIf(!formattedHTML, "Import failed, file not found");  // Steps to get this error?
+    const frame = createFrame();
+    const text = formattedHTML.html;
+    errorIf(!text, "Empty index.html file?");  // Steps to get this error?
+    const doc = frame.contentWindow.document;
+    doc.open();
+    doc.write(text);
+    doc.close();
+    document.querySelector("form").style.display = "none";
+    document.body.style.all = "initial";
+    document.querySelector(".github-corner").style.display = "none";
+    document.title = formattedHTML.title;
 }
