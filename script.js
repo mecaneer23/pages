@@ -22,8 +22,7 @@ function parseUrl(url) {
     };
 }
 
-async function folderLinkToList() {
-    const folderLink = document.getElementById("url").value;
+async function folderLinkToList(folderLink) {
     const url = parseUrl(folderLink);
     const fetchUrl = `https://api.github.com/repos/${url.user}/${url.repo}/contents/${url.path}${url.branch}`;
     return fetch(fetchUrl).then((response) => {
@@ -102,12 +101,13 @@ async function handleImports(indexHtml, files) {
 }
 
 async function run() {
-    const files = await folderLinkToList();
+    const files = await folderLinkToList(document.getElementById("url").value);
     const rawUrl = getIndexFile(files);
     errorIf(!rawUrl, "No `index.html` found in entered folder");
-    const frame = createFrame();
     fetch(rawUrl).then(async (response) => {
         const formattedHTML = await handleImports(await response.text(), files);
+        errorIf(!formattedHTML, "Import failed, file not found");
+        const frame = createFrame();
         const text = formattedHTML.html;
         if (!text) {
             return;
