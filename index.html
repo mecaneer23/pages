@@ -103,7 +103,7 @@
                 }
                 // TODO: implement using paths which include folders
             }
-            errorIf(true, "File not found in files list");
+            errorIf(true, `File "${path}" not found in files list`);
         }
 
         async function handleImports(indexHtml, files) {
@@ -111,6 +111,9 @@
             let title = "Pages"
             const htmlElement = document.createElement("div");
             for (let line of indexHtml.split("\n")) {
+                if (line.includes("<head")) {
+                    formattedHTML += `<base target="_parent">\n`;
+                }
                 if (line.length == 0 || !line.match(/<((link)|(script)|(title))/)) {
                     formattedHTML += `${line}\n`;
                     continue;
