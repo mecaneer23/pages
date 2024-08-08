@@ -47,9 +47,16 @@ function formatRawMaterial(material, tagType) {
     return `<${tagType}>${material}</${tagType}>`;
 }
 
+function possiblePath(path) {
+    if (path.startsWith("./")) {
+        return path.substring(2);
+    }
+    return path;
+}
+
 async function fetchFile(path, files) {
     for (let file of files) {
-        if (file.name === path && file.type === "file") {
+        if (file.name === possiblePath(path) && file.type === "file") {
             return await fetch(file.download_url).then(async (response) => await response.text());
         }
         // TODO: implement using paths which include folders
@@ -73,6 +80,10 @@ async function handleImports(indexHtml, files) {
         let type = htmlElement.firstChild.nodeName.toLowerCase();
         let attributes = htmlElement.firstChild.attributes;
         if (type === "link" && attributes.rel.value === "stylesheet") {
+            if (attributes.href.value.startsWith("http")) {
+                formattedHTML += `${line}\n`;
+                continue;
+            }
             formattedHTML += formatRawMaterial(await fetchFile(attributes.href.value, files), "style");
             continue;
         }
