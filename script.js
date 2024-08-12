@@ -54,29 +54,57 @@ function possiblePath(path) {
     return path;
 }
 
-async function fetchFile(path, files) {
+async function fetchFile(path, files, expectImage) {
     for (let file of files) {
         if (file.name === possiblePath(path) && file.type === "file") {
-            return await fetch(file.download_url).then(async (response) => await response.text());
+            return await fetch(file.download_url).then(async (response) => await (expectImage ? response.blob() : response.text()));
         }
         // TODO: implement using paths which include folders
     }
     errorIf(true, `File "${path}" not found in files list`);
 }
 
+function parseImgTag(line) {
+    const match = line.match(/<img\s+([^>]*)\s*src=\"([^\"]*)\"(.*?)>/);
+    if (!match) {
+        return { isImage: false };
+    }
+    return {
+        isImage: true,
+        src: match[2],
+        additionalData: match[3]
+    };
+}
+
 async function handleImports(indexHtml, files) {
     let formattedHTML = "";
     let title = "Pages"
+    let prevLine = "";
     const htmlElement = document.createElement("div");
     for (let line of indexHtml.split("\n")) {
+        line = line.trim();
+        if (prevLine) {
+            line = prevLine + line;
+            prevLine = "";
+        }
+        if (line.startsWith("<") && !line.endsWith(">")) {
+            prevLine = line;
+            continue;
+        }
         if (line.includes("<" + "head")) {  // Concatenated because would run when parsing source otherwise
             formattedHTML += `<base target="_parent">\n`;
         }
-        if (line.length == 0 || !line.match(/<((link)|(script)|(title))/)) {
+        if (line.length == 0 || !line.match(/<((link)|(script)|(title)|(img))/)) {
             formattedHTML += `${line}\n`;
             continue;
         }
-        htmlElement.innerHTML = line.trim();
+        const imgInfo = parseImgTag(line);
+        if (imgInfo.isImage) {
+            formattedHTML += `<img src="${URL.createObjectURL(await fetchFile(imgInfo.src, files, true))}" ${imgInfo.additionalData} />`;
+            continue;
+        }
+        htmlElement.innerHTML = line;
+        console.log(line);
         let type = htmlElement.firstChild.nodeName.toLowerCase();
         let attributes = htmlElement.firstChild.attributes;
         if (type === "link" && attributes.rel.value === "stylesheet") {
