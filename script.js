@@ -88,6 +88,10 @@ async function handleImports(indexHtml, files) {
             continue;
         }
         if (type === "script" && "src" in attributes) {
+            if (attributes.src.value.startsWith("http")) {
+                formattedHTML += `${line}\n`;
+                continue;
+            }
             formattedHTML += formatRawMaterial(await fetchFile(attributes.src.value, files), "script");
             continue;
         }
