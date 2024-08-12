@@ -104,7 +104,6 @@ async function handleImports(indexHtml, files) {
             continue;
         }
         htmlElement.innerHTML = line;
-        console.log(line);
         let type = htmlElement.firstChild.nodeName.toLowerCase();
         let attributes = htmlElement.firstChild.attributes;
         if (type === "link" && attributes.rel.value === "stylesheet") {
