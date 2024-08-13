@@ -25,9 +25,12 @@ function parseUrl(url) {
 async function folderLinkToList(folderLink) {
     const url = parseUrl(folderLink);
     const fetchUrl = `https://api.github.com/repos/${url.user}/${url.repo}/contents/${url.path}${url.branch}`;
-    return fetch(fetchUrl).then((response) => {
+    return fetch(fetchUrl).then(async (response) => {
         errorIf(!response.ok, `Invalid repository "${url.repo}"`);
-        return response.json();
+        return {
+            files: await response.json(),
+            folder: url.path ? url.path.split("/").slice(-1) : url.repo
+        };
     });
 }
 
@@ -47,21 +50,28 @@ function formatRawMaterial(material, tagType) {
     return `<${tagType}>${material}</${tagType}>`;
 }
 
-function possiblePath(path) {
-    if (path.startsWith("./")) {
-        return path.substring(2);
+function leftStrip(string, substring) {
+    if (string.startsWith(substring)) {
+        return string.substring(substring.length);
     }
-    return path;
+    return string;
 }
 
-async function fetchFile(path, files, expectImage) {
-    for (let file of files) {
-        if (file.name === possiblePath(path) && file.type === "file") {
-            return await fetch(file.download_url).then(async (response) => await (expectImage ? response.blob() : response.text()));
+async function fetchFile(path, files, folder, expectImage) {
+    let fileString = "";
+    for (let entry of files) {
+        fileString += entry.path + "\n";
+        if (entry.name === leftStrip(path, "./").split("/")[0]) {
+            if (entry.type === "file") {
+                return await fetch(entry.download_url).then(response => expectImage ? response.blob() : response.text());
+            }
+            if (entry.type === "dir") {
+                return fetchFile(path.split("/").slice(1).join("/"), await fetch(entry.url).then(response => response.json()), "", expectImage);
+            }
+            errorIf(true, `Unknown file type '${entry.type}' for ${entry.name}`);
         }
-        // TODO: implement using paths which include folders
     }
-    errorIf(true, `File "${path}" not found in files list`);
+    errorIf(true, `File '${path}' not found in files list:\n\n${fileString}`);
 }
 
 function parseImgTag(line) {
@@ -100,7 +110,7 @@ async function handleImports(indexHtml, files) {
         }
         const imgInfo = parseImgTag(line);
         if (imgInfo.isImage) {
-            formattedHTML += `<img src="${URL.createObjectURL(await fetchFile(imgInfo.src, files, true))}" ${imgInfo.additionalData} />`;
+            formattedHTML += `<img src="${URL.createObjectURL(await fetchFile(imgInfo.src, files, "", true))}" ${imgInfo.additionalData} />`;
             continue;
         }
         htmlElement.innerHTML = line;
@@ -111,7 +121,7 @@ async function handleImports(indexHtml, files) {
                 formattedHTML += `${line}\n`;
                 continue;
             }
-            formattedHTML += formatRawMaterial(await fetchFile(attributes.href.value, files), "style");
+            formattedHTML += formatRawMaterial(await fetchFile(attributes.href.value, files, "", false), "style");
             continue;
         }
         if (type === "script" && "src" in attributes) {
@@ -119,7 +129,7 @@ async function handleImports(indexHtml, files) {
                 formattedHTML += `${line}\n`;
                 continue;
             }
-            formattedHTML += formatRawMaterial(await fetchFile(attributes.src.value, files), "script");
+            formattedHTML += formatRawMaterial(await fetchFile(attributes.src.value, files, "", false), "script");
             continue;
         }
         if (type === "title") {
@@ -134,8 +144,9 @@ async function handleImports(indexHtml, files) {
 }
 
 async function run() {
-    const files = await folderLinkToList(document.getElementById("url").value);
-    const responseText = fetchFile("index.html", files);
+    const folderData = await folderLinkToList(document.getElementById("url").value);
+    const files = folderData.files;
+    const responseText = fetchFile("index.html", files, folderData.folder, false);
     const formattedHTML = await handleImports(await responseText, files);
     errorIf(!formattedHTML, "Import failed, file not found");  // Steps to get this error?
     const frame = createFrame();
