@@ -76,7 +76,8 @@ async function performFetch(download_url, expectImage) {
 
 async function fetchFile(path, files, currentFolder, expectImage, urlInfo) {
     if (path.length > 1 && path.startsWith("/") && path.split("/")[1] !== currentFolder) {
-        return performFetch(`${urlInfo.baseUrl}${leftStrip(path, "/")}${urlInfo.branch}`, expectImage);
+        const url = await fetch(`${urlInfo.baseUrl}${leftStrip(path, "/")}${urlInfo.branch}`).then(response => response.json());
+        return performFetch(url.download_url, expectImage);
     }
     const name = leftStrip(path, "./").split("/")[getIndexFromPath(path, currentFolder)];
     for (let entry of files) {

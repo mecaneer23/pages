@@ -6,8 +6,7 @@ View HTML GitHub folder without GitHub pages.
 
 ## Todo
 
-- feat: implement importing paths which include folders in fetchFile()
-  - handle absolute paths
-    - to other directory (in /about, references /resources) - requires fetch
-  - make sure files aren't imported twice (scripts and links)
+- feat: make sure files aren't imported twice (scripts and links)
+  - not a huge issue because of caching
 - fix: svg disappearing when loading self
+- feat: implement interception for same-domain redirects
