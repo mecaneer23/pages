@@ -29,7 +29,7 @@ async function folderLinkToList(folderLink) {
         errorIf(!response.ok, `Invalid repository "${url.repo}"`);
         return {
             files: await response.json(),
-            folder: url.path ? url.path.split("/").slice(-1) : url.repo
+            folder: url.path ? url.path.split("/").slice(-1)[0] : url.repo
         };
     });
 }
@@ -57,21 +57,28 @@ function leftStrip(string, substring) {
     return string;
 }
 
-async function fetchFile(path, files, folder, expectImage) {
-    let fileString = "";
+async function fetchFile(path, files, currentFolder, expectImage) {
+    const name = leftStrip(path, "./").split("/")[path.startsWith("/") ? (path.startsWith("/" + currentFolder) ? 2 : 1) : path.startsWith(currentFolder) ? 1 : 0];
+    console.log(path);
+    console.log(currentFolder);
+    console.log(name);
     for (let entry of files) {
-        fileString += entry.path + "\n";
-        if (entry.name === leftStrip(path, "./").split("/")[0]) {
+        if (entry.name === name) {
             if (entry.type === "file") {
                 return await fetch(entry.download_url).then(response => expectImage ? response.blob() : response.text());
             }
             if (entry.type === "dir") {
-                return fetchFile(path.split("/").slice(1).join("/"), await fetch(entry.url).then(response => response.json()), "", expectImage);
+                return fetchFile(
+                    path.split("/").slice(path.startsWith("/") ? 2 : 1).join("/"),
+                    await fetch(entry.url).then(response => response.json()),
+                    path.split("/").slice(-2, -1)[0] || "/",
+                    expectImage
+                );
             }
             errorIf(true, `Unknown file type '${entry.type}' for ${entry.name}`);
         }
     }
-    errorIf(true, `File '${path}' not found in files list:\n\n${fileString}`);
+    errorIf(true, `File '${name}' not found in files list`);
 }
 
 function parseImgTag(line) {
@@ -86,7 +93,7 @@ function parseImgTag(line) {
     };
 }
 
-async function handleImports(indexHtml, files) {
+async function handleImports(indexHtml, files, folder) {
     let formattedHTML = "";
     let title = "Pages"
     let prevLine = "";
@@ -110,7 +117,7 @@ async function handleImports(indexHtml, files) {
         }
         const imgInfo = parseImgTag(line);
         if (imgInfo.isImage) {
-            formattedHTML += `<img src="${URL.createObjectURL(await fetchFile(imgInfo.src, files, "", true))}" ${imgInfo.additionalData} />`;
+            formattedHTML += `<img src="${URL.createObjectURL(await fetchFile(imgInfo.src, files, folder, true))}" ${imgInfo.additionalData} />`;
             continue;
         }
         htmlElement.innerHTML = line;
@@ -121,7 +128,7 @@ async function handleImports(indexHtml, files) {
                 formattedHTML += `${line}\n`;
                 continue;
             }
-            formattedHTML += formatRawMaterial(await fetchFile(attributes.href.value, files, "", false), "style");
+            formattedHTML += formatRawMaterial(await fetchFile(attributes.href.value, files, folder, false), "style");
             continue;
         }
         if (type === "script" && "src" in attributes) {
@@ -129,7 +136,7 @@ async function handleImports(indexHtml, files) {
                 formattedHTML += `${line}\n`;
                 continue;
             }
-            formattedHTML += formatRawMaterial(await fetchFile(attributes.src.value, files, "", false), "script");
+            formattedHTML += formatRawMaterial(await fetchFile(attributes.src.value, files, folder, false), "script");
             continue;
         }
         if (type === "title") {
@@ -146,8 +153,9 @@ async function handleImports(indexHtml, files) {
 async function run() {
     const folderData = await folderLinkToList(document.getElementById("url").value);
     const files = folderData.files;
-    const responseText = fetchFile("index.html", files, folderData.folder, false);
-    const formattedHTML = await handleImports(await responseText, files);
+    const folder = folderData.folder;
+    const responseText = fetchFile("index.html", files, folder, false);
+    const formattedHTML = await handleImports(await responseText, files, folder);
     errorIf(!formattedHTML, "Import failed, file not found");  // Steps to get this error?
     const frame = createFrame();
     const text = formattedHTML.html;

@@ -8,5 +8,5 @@ View HTML GitHub folder without GitHub pages.
 
 - feat: implement importing paths which include folders in fetchFile()
   - handle absolute paths
-    - to current directory (in /about, references /about) - fetch would be redundant
     - to other directory (in /about, references /resources) - requires fetch
+  - make sure files aren't imported twice (scripts and links)
