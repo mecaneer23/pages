@@ -57,11 +57,19 @@ function leftStrip(string, substring) {
     return string;
 }
 
+function getIndexFromPath(path, currentFolder) {
+    let index = 0;
+    if (path.startsWith("/")) {
+        index++;
+    }
+    if (leftStrip(path, "/").startsWith(currentFolder)) {
+        index++;
+    }
+    return index;
+}
+
 async function fetchFile(path, files, currentFolder, expectImage) {
-    const name = leftStrip(path, "./").split("/")[path.startsWith("/") ? (path.startsWith("/" + currentFolder) ? 2 : 1) : path.startsWith(currentFolder) ? 1 : 0];
-    console.log(path);
-    console.log(currentFolder);
-    console.log(name);
+    const name = leftStrip(path, "./").split("/")[getIndexFromPath(path, currentFolder)];
     for (let entry of files) {
         if (entry.name === name) {
             if (entry.type === "file") {
