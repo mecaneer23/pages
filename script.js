@@ -23,13 +23,15 @@ function parseUrl(url) {
 }
 
 async function folderLinkToList(folderLink) {
-    const url = parseUrl(folderLink);
-    const fetchUrl = `https://api.github.com/repos/${url.user}/${url.repo}/contents/${url.path}${url.branch}`;
-    return fetch(fetchUrl).then(async (response) => {
-        errorIf(!response.ok, `Invalid repository "${url.repo}"`);
+    const urlData = parseUrl(folderLink);
+    const baseUrl = `https://api.github.com/repos/${urlData.user}/${urlData.repo}/contents/`;
+    return fetch(`${baseUrl}${urlData.path}${urlData.branch}`).then(async (response) => {
+        errorIf(!response.ok, `Invalid repository "${urlData.repo}"`);
         return {
             files: await response.json(),
-            folder: url.path ? url.path.split("/").slice(-1)[0] : url.repo
+            folder: urlData.path ? urlData.path.split("/").slice(-1)[0] : urlData.repo,
+            baseUrl: baseUrl,
+            branch: urlData.branch
         };
     });
 }
@@ -68,19 +70,27 @@ function getIndexFromPath(path, currentFolder) {
     return index;
 }
 
-async function fetchFile(path, files, currentFolder, expectImage) {
+async function performFetch(download_url, expectImage) {
+    return await fetch(download_url).then(response => expectImage ? response.blob() : response.text());
+}
+
+async function fetchFile(path, files, currentFolder, expectImage, urlInfo) {
+    if (path.length > 1 && path.startsWith("/") && path.split("/")[1] !== currentFolder) {
+        performFetch(`${urlInfo.baseUrl}${path}${urlInfo.branch}`, expectImage);
+    }
     const name = leftStrip(path, "./").split("/")[getIndexFromPath(path, currentFolder)];
     for (let entry of files) {
         if (entry.name === name) {
             if (entry.type === "file") {
-                return await fetch(entry.download_url).then(response => expectImage ? response.blob() : response.text());
+                return performFetch(entry.download_url, expectImage);
             }
             if (entry.type === "dir") {
                 return fetchFile(
                     path.split("/").slice(path.startsWith("/") ? 2 : 1).join("/"),
                     await fetch(entry.url).then(response => response.json()),
                     path.split("/").slice(-2, -1)[0] || "/",
-                    expectImage
+                    expectImage,
+                    urlInfo
                 );
             }
             errorIf(true, `Unknown file type '${entry.type}' for ${entry.name}`);
@@ -101,7 +111,7 @@ function parseImgTag(line) {
     };
 }
 
-async function handleImports(indexHtml, files, folder) {
+async function handleImports(indexHtml, files, folder, urlInfo) {
     let formattedHTML = "";
     let title = "Pages"
     let prevLine = "";
@@ -125,7 +135,7 @@ async function handleImports(indexHtml, files, folder) {
         }
         const imgInfo = parseImgTag(line);
         if (imgInfo.isImage) {
-            formattedHTML += `<img src="${URL.createObjectURL(await fetchFile(imgInfo.src, files, folder, true))}" ${imgInfo.additionalData} />`;
+            formattedHTML += `<img src="${URL.createObjectURL(await fetchFile(imgInfo.src, files, folder, true, urlInfo))}" ${imgInfo.additionalData} />`;
             continue;
         }
         htmlElement.innerHTML = line;
@@ -136,7 +146,7 @@ async function handleImports(indexHtml, files, folder) {
                 formattedHTML += `${line}\n`;
                 continue;
             }
-            formattedHTML += formatRawMaterial(await fetchFile(attributes.href.value, files, folder, false), "style");
+            formattedHTML += formatRawMaterial(await fetchFile(attributes.href.value, files, folder, false, urlInfo), "style");
             continue;
         }
         if (type === "script" && "src" in attributes) {
@@ -144,7 +154,7 @@ async function handleImports(indexHtml, files, folder) {
                 formattedHTML += `${line}\n`;
                 continue;
             }
-            formattedHTML += formatRawMaterial(await fetchFile(attributes.src.value, files, folder, false), "script");
+            formattedHTML += formatRawMaterial(await fetchFile(attributes.src.value, files, folder, false, urlInfo), "script");
             continue;
         }
         if (type === "title") {
@@ -162,8 +172,12 @@ async function run() {
     const folderData = await folderLinkToList(document.getElementById("url").value);
     const files = folderData.files;
     const folder = folderData.folder;
-    const responseText = fetchFile("index.html", files, folder, false);
-    const formattedHTML = await handleImports(await responseText, files, folder);
+    const urlInfo = {
+        baseUrl: folderData.baseUrl,
+        branch: folderData.branch
+    };
+    const responseText = fetchFile("index.html", files, folder, false, urlInfo);
+    const formattedHTML = await handleImports(await responseText, files, folder, urlInfo);
     errorIf(!formattedHTML, "Import failed, file not found");  // Steps to get this error?
     const frame = createFrame();
     const text = formattedHTML.html;

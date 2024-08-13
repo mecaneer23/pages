@@ -10,3 +10,4 @@ View HTML GitHub folder without GitHub pages.
   - handle absolute paths
     - to other directory (in /about, references /resources) - requires fetch
   - make sure files aren't imported twice (scripts and links)
+- fix: svg disappearing when loading self
