@@ -10,7 +10,9 @@ function parseUrl(url) {
         !url.startsWith("https://github.com/"),
         "Invalid url: must be full github url"
     );
-    const [user, repo, _, possibleBranch, ...rest] = url.replace("https://github.com/", "").split("/");
+    const [user, repo, _, possibleBranch, ...rest] = url
+        .replace("https://github.com/", "")
+        .split("/");
     const path = rest.join("/");
     const branch = possibleBranch ? `?ref=${possibleBranch}` : "";
     errorIf(!repo, `Repo "${repo}" not found`);
@@ -25,15 +27,19 @@ function parseUrl(url) {
 async function folderLinkToList(folderLink) {
     const urlData = parseUrl(folderLink);
     const baseUrl = `https://api.github.com/repos/${urlData.user}/${urlData.repo}/contents/`;
-    return fetch(`${baseUrl}${urlData.path}${urlData.branch}`).then(async (response) => {
-        errorIf(!response.ok, `Invalid repository "${urlData.repo}"`);
-        return {
-            files: await response.json(),
-            folder: urlData.path ? urlData.path.split("/").slice(-1)[0] : urlData.repo,
-            baseUrl: baseUrl,
-            branch: urlData.branch
-        };
-    });
+    return fetch(`${baseUrl}${urlData.path}${urlData.branch}`).then(
+        async (response) => {
+            errorIf(!response.ok, `Invalid repository "${urlData.repo}"`);
+            return {
+                files: await response.json(),
+                folder: urlData.path
+                    ? urlData.path.split("/").slice(-1)[0]
+                    : urlData.repo,
+                baseUrl: baseUrl,
+                branch: urlData.branch,
+            };
+        }
+    );
 }
 
 function createFrame() {
@@ -71,15 +77,25 @@ function getIndexFromPath(path, currentFolder) {
 }
 
 async function performFetch(download_url, expectImage) {
-    return await fetch(download_url).then(response => expectImage ? response.blob() : response.text());
+    return await fetch(download_url).then((response) =>
+        expectImage ? response.blob() : response.text()
+    );
 }
 
 async function fetchFile(path, files, currentFolder, expectImage, urlInfo) {
-    if (path.length > 1 && path.startsWith("/") && path.split("/")[1] !== currentFolder) {
-        const url = await fetch(`${urlInfo.baseUrl}${leftStrip(path, "/")}${urlInfo.branch}`).then(response => response.json());
+    if (
+        path.length > 1 &&
+        path.startsWith("/") &&
+        path.split("/")[1] !== currentFolder
+    ) {
+        const url = await fetch(
+            `${urlInfo.baseUrl}${leftStrip(path, "/")}${urlInfo.branch}`
+        ).then((response) => response.json());
         return performFetch(url.download_url, expectImage);
     }
-    const name = leftStrip(path, "./").split("/")[getIndexFromPath(path, currentFolder)];
+    const name = leftStrip(path, "./").split("/")[
+        getIndexFromPath(path, currentFolder)
+    ];
     for (let entry of files) {
         if (entry.name === name) {
             if (entry.type === "file") {
@@ -87,14 +103,20 @@ async function fetchFile(path, files, currentFolder, expectImage, urlInfo) {
             }
             if (entry.type === "dir") {
                 return fetchFile(
-                    path.split("/").slice(path.startsWith("/") ? 2 : 1).join("/"),
-                    await fetch(entry.url).then(response => response.json()),
+                    path
+                        .split("/")
+                        .slice(path.startsWith("/") ? 2 : 1)
+                        .join("/"),
+                    await fetch(entry.url).then((response) => response.json()),
                     path.split("/").slice(-2, -1)[0] || "/",
                     expectImage,
                     urlInfo
                 );
             }
-            errorIf(true, `Unknown file type '${entry.type}' for ${entry.name}`);
+            errorIf(
+                true,
+                `Unknown file type '${entry.type}' for ${entry.name}`
+            );
         }
     }
     errorIf(true, `File '${name}' not found in files list`);
@@ -108,13 +130,13 @@ function parseImgTag(line) {
     return {
         isImage: true,
         src: match[2],
-        additionalData: match[3]
+        additionalData: match[3],
     };
 }
 
 async function handleImports(indexHtml, files, folder, urlInfo) {
     let formattedHTML = "";
-    let title = "Pages"
+    let title = "Pages";
     let prevLine = "";
     const htmlElement = document.createElement("div");
     for (let line of indexHtml.split("\n")) {
@@ -127,16 +149,22 @@ async function handleImports(indexHtml, files, folder, urlInfo) {
             prevLine = line;
             continue;
         }
-        if (line.includes("<" + "head")) {  // Concatenated because would run when parsing source otherwise
+        if (line.includes("<" + "head")) {
+            // Concatenated because would run when parsing source otherwise
             formattedHTML += `<base target="_parent">\n`;
         }
-        if (line.length == 0 || !line.match(/<((link)|(script)|(title)|(img))/)) {
+        if (
+            line.length == 0 ||
+            !line.match(/<((link)|(script)|(title)|(img))/)
+        ) {
             formattedHTML += `${line}\n`;
             continue;
         }
         const imgInfo = parseImgTag(line);
         if (imgInfo.isImage) {
-            formattedHTML += `<img src="${URL.createObjectURL(await fetchFile(imgInfo.src, files, folder, true, urlInfo))}" ${imgInfo.additionalData} />`;
+            formattedHTML += `<img src="${URL.createObjectURL(
+                await fetchFile(imgInfo.src, files, folder, true, urlInfo)
+            )}" ${imgInfo.additionalData} />`;
             continue;
         }
         htmlElement.innerHTML = line;
@@ -147,7 +175,16 @@ async function handleImports(indexHtml, files, folder, urlInfo) {
                 formattedHTML += `${line}\n`;
                 continue;
             }
-            formattedHTML += formatRawMaterial(await fetchFile(attributes.href.value, files, folder, false, urlInfo), "style");
+            formattedHTML += formatRawMaterial(
+                await fetchFile(
+                    attributes.href.value,
+                    files,
+                    folder,
+                    false,
+                    urlInfo
+                ),
+                "style"
+            );
             continue;
         }
         if (type === "script" && "src" in attributes) {
@@ -155,7 +192,16 @@ async function handleImports(indexHtml, files, folder, urlInfo) {
                 formattedHTML += `${line}\n`;
                 continue;
             }
-            formattedHTML += formatRawMaterial(await fetchFile(attributes.src.value, files, folder, false, urlInfo), "script");
+            formattedHTML += formatRawMaterial(
+                await fetchFile(
+                    attributes.src.value,
+                    files,
+                    folder,
+                    false,
+                    urlInfo
+                ),
+                "script"
+            );
             continue;
         }
         if (type === "title") {
@@ -170,19 +216,26 @@ async function handleImports(indexHtml, files, folder, urlInfo) {
 }
 
 async function run() {
-    const folderData = await folderLinkToList(document.getElementById("url").value);
+    const folderData = await folderLinkToList(
+        document.getElementById("url").value
+    );
     const files = folderData.files;
     const folder = folderData.folder;
     const urlInfo = {
         baseUrl: folderData.baseUrl,
-        branch: folderData.branch
+        branch: folderData.branch,
     };
     const responseText = fetchFile("index.html", files, folder, false, urlInfo);
-    const formattedHTML = await handleImports(await responseText, files, folder, urlInfo);
-    errorIf(!formattedHTML, "Import failed, file not found");  // Steps to get this error?
+    const formattedHTML = await handleImports(
+        await responseText,
+        files,
+        folder,
+        urlInfo
+    );
+    errorIf(!formattedHTML, "Import failed, file not found"); // Steps to get this error?
     const frame = createFrame();
     const text = formattedHTML.html;
-    errorIf(!text, "Empty index.html file?");  // Steps to get this error?
+    errorIf(!text, "Empty index.html file?"); // Steps to get this error?
     const doc = frame.contentWindow.document;
     doc.open();
     doc.write(text);
