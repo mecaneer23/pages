@@ -142,7 +142,7 @@ async function handleImports(indexHtml, files, folder, urlInfo) {
     for (let line of indexHtml.split("\n")) {
         line = line.trim();
         if (prevLine) {
-            line = prevLine + line;
+            line = `${prevLine} ${line}`;
             prevLine = "";
         }
         if (line.startsWith("<") && !line.endsWith(">")) {
