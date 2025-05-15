@@ -9,3 +9,4 @@ View HTML GitHub folder without GitHub pages.
 - feat: make sure files aren't imported twice (scripts and links)
   - not a huge issue because of caching
 - feat: implement interception for same-domain redirects
+- feat: implement fetching from specific commit hash
